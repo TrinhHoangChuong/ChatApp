@@ -1,0 +1,72 @@
+### ChatApp API Testing
+
+@baseUrl = http://localhost:5187/api
+@token = YOUR_JWT_TOKEN_HERE
+
+### 1. Đăng ký
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "username": "testuser",
+  "passwordHash": "123456"
+}
+
+### 2. Đăng nhập
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "username": "testuser",
+  "passwordHash": "123456"
+}
+
+### 3. Lấy danh sách users (cần token)
+GET {{baseUrl}}/user
+Authorization: Bearer {{token}}
+
+### 4. Lấy danh sách rooms và DMs (cần token)
+GET {{baseUrl}}/room
+Authorization: Bearer {{token}}
+
+### 5. Tạo room mới (cần token)
+POST {{baseUrl}}/room
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "General",
+  "description": "Room chat chung"
+}
+
+### 6. Tham gia room (cần token)
+POST {{baseUrl}}/room/1/join
+Authorization: Bearer {{token}}
+
+### 7. Tạo/get DM với user (cần token)
+POST {{baseUrl}}/room/dm/2
+Authorization: Bearer {{token}}
+
+### 8. Lấy tin nhắn trong room (cần token)
+GET {{baseUrl}}/message/room/1
+Authorization: Bearer {{token}}
+
+### 9. Gửi tin nhắn trong room (cần token)
+POST {{baseUrl}}/message
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "content": "Hello world!",
+  "roomId": 1
+}
+
+### 10. Gửi tin nhắn DM (cần token)
+POST {{baseUrl}}/message
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "content": "Hello private!",
+  "receiverId": 2
+}
