@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ChatApp</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+</head>
+<body>
+    <div id="auth-overlay" class="auth-overlay">
+        <div class="auth-card">
+            <header class="auth-header">
+                <h1>Chào mừng bạn đến với ChatApp</h1>
+                <p>Đăng nhập hoặc tạo tài khoản để khám phá cộng đồng của bạn.</p>
+            </header>
+            <div class="auth-tabs">
+                <button id="tab-login" class="auth-tab active" type="button">Đăng nhập</button>
+                <button id="tab-register" class="auth-tab" type="button">Đăng ký</button>
+            </div>
+            <form id="login-form" class="auth-form" autocomplete="off">
+                <label class="field">
+                    <span>Tên đăng nhập</span>
+                    <input id="login-username" name="username" placeholder="Ví dụ: sinhvien123" required />
+                </label>
+                <label class="field">
+                    <span>Mật khẩu</span>
+                    <input id="login-password" name="password" type="password" placeholder="••••••" required />
+                </label>
+                <button type="submit" class="auth-submit">Đăng nhập</button>
+            </form>
+
+            <form id="register-form" class="auth-form hidden" autocomplete="off">
+                <label class="field">
+                    <span>Tên đăng nhập</span>
+                    <input id="register-username" name="username" placeholder="Chọn tên thật ngầu ✨" required />
+                </label>
+                <label class="field">
+                    <span>Mật khẩu</span>
+                    <input id="register-password" name="password" type="password" minlength="6" placeholder="Ít nhất 6 ký tự" required />
+                </label>
+                <button type="submit" class="auth-submit accent">Tạo tài khoản</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="app-shell" class="app-shell hidden">
+        <nav class="server-rail">
+            <div class="server-rail__header">
+                <span class="rail-logo">💬</span>
+            </div>
+            <ul id="server-list" class="server-rail__list">
+                <!-- populated by JS -->
+            </ul>
+            <button id="open-create-server" class="server-rail__create" type="button" title="Tạo máy chủ"><span>+</span></button>
+        </nav>
+
+        <aside class="channel-pane">
+            <header class="channel-pane__header">
+                <div>
+                    <h2 id="active-server-name">Global Community</h2>
+                    <span id="active-server-desc">Kết nối với mọi người</span>
+                </div>
+                <button id="open-server-settings" class="icon-button" type="button" title="Cài đặt máy chủ">⚙</button>
+            </header>
+
+            <section class="channel-section">
+                <div class="channel-section__title">
+                    <span>KÊNH VĂN BẢN</span>
+                    <button id="create-channel-btn" class="icon-button small" type="button" title="Tạo kênh">+</button>
+                </div>
+                <ul id="channel-list" class="channel-list"></ul>
+            </section>
+
+            <section class="channel-section">
+                <div class="channel-section__title">
+                    <span>TIN NHẮN RIÊNG</span>
+                    <div class="channel-section__actions">
+                        <button id="open-friend-center" class="icon-button small" type="button" title="Quản lý bạn bè">🤝</button>
+                        <button id="open-dm-btn" class="icon-button small" type="button" title="Tạo DM mới">+</button>
+                    </div>
+                </div>
+                <div class="dm-search">
+                    <input id="dm-search-input" placeholder="Tìm bạn bè..." />
+                </div>
+                <ul id="dm-list" class="dm-list"></ul>
+            </section>
+
+            <footer class="channel-pane__footer">
+                <div class="user-card">
+                    <div class="avatar" id="session-avatar"></div>
+                    <div class="user-card__info">
+                        <span id="session-username" class="user-card__name"></span>
+                        <span class="user-card__status">Online</span>
+                    </div>
+                </div>
+                <button id="logout-btn" class="icon-button" type="button" title="Đăng xuất">⎋</button>
+            </footer>
+        </aside>
+
+        <main class="chat-main">
+            <header class="chat-toolbar">
+                <div class="chat-toolbar__info">
+                    <span class="chat-toolbar__hash">#</span>
+                    <div>
+                        <h1 id="active-channel-name">general</h1>
+                        <p id="active-channel-topic">Nơi trò chuyện chung của tất cả mọi người</p>
+                    </div>
+                </div>
+                <div class="chat-toolbar__actions">
+                    <input id="global-search" placeholder="Tìm kiếm tin nhắn" />
+                    <button class="icon-button" type="button" title="Mời bạn bè vào kênh" id="invite-friend-btn">➕</button>
+                    <button class="icon-button" type="button" title="Bật danh sách thành viên" id="toggle-memberlist">👥</button>
+                </div>
+            </header>
+
+            <div id="chat-content" class="chat-content">
+                <div id="message-list" class="message-list"></div>
+                <div id="typing-indicator" class="typing-indicator hidden"></div>
+            </div>
+
+            <footer class="composer-bar">
+                <form id="composer" autocomplete="off">
+                    <button id="emoji-btn" class="icon-button" type="button" title="Emoji">😊</button>
+                    <input id="message-input" placeholder="Nhập tin nhắn. Sử dụng Ctrl + Enter để gửi nhanh." />
+                    <div class="composer-actions">
+                        <label for="file-input" class="icon-button" title="Đính kèm tệp">📎</label>
+                        <input id="file-input" type="file" accept="image/*,video/*,audio/*,.gif,.png,.jpg,.jpeg,.mp4,.mp3,.wav" hidden />
+                        <button id="send-btn" class="primary-btn" type="submit">Gửi</button>
+                    </div>
+                </form>
+            </footer>
+        </main>
+
+        <aside id="member-pane" class="member-pane">
+            <section class="member-section">
+                <h3>Thành viên máy chủ — <span id="guild-member-count">0</span></h3>
+                <ul id="guild-members" class="member-list"></ul>
+            </section>
+
+            <section class="member-section">
+                <h3>Online — <span id="online-count">0</span></h3>
+                <ul id="online-users" class="member-list"></ul>
+            </section>
+
+            <section class="member-section">
+                <h3>Tất cả tài khoản</h3>
+                <input id="user-search" class="member-search" placeholder="Tìm kiếm username..." />
+                <ul id="directory-users" class="member-list directory"></ul>
+            </section>
+
+            <section class="event-section">
+                <h3>Nguồn cấp hoạt động</h3>
+                <ul id="event-log" class="event-log"></ul>
+            </section>
+
+            <section class="event-section">
+                <h3>Tệp đã tải lên</h3>
+                <ul id="uploaded-files" class="uploaded-files"></ul>
+            </section>
+        </aside>
+    </div>
+
+    <!-- Create server modal -->
+    <div id="create-server-modal" class="modal hidden">
+        <div class="modal__dialog">
+            <header class="modal__header">
+                <h2>Tạo máy chủ mới</h2>
+                <button class="icon-button" type="button" data-close-modal>✕</button>
+            </header>
+            <form id="create-server-form" class="modal__body">
+                <label class="field">
+                    <span>Tên máy chủ</span>
+                    <input id="new-server-name" placeholder="Bạn bè, lớp học, cộng đồng..." required />
+                </label>
+                <label class="field">
+                    <span>Mô tả</span>
+                    <input id="new-server-desc" placeholder="Giới thiệu ngắn gọn" />
+                </label>
+                <button class="primary-btn full" type="submit">Tạo máy chủ</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Create channel modal -->
+    <div id="create-channel-modal" class="modal hidden">
+        <div class="modal__dialog">
+            <header class="modal__header">
+                <h2>Tạo kênh văn bản</h2>
+                <button class="icon-button" type="button" data-close-modal>✕</button>
+            </header>
+            <form id="create-channel-form" class="modal__body">
+                <label class="field">
+                    <span>Tên kênh</span>
+                    <input id="new-channel-name" placeholder="ví dụ: bai-tap, hang-out..." required />
+                </label>
+                <label class="checkbox-field">
+                    <input id="channel-private" type="checkbox" disabled />
+                    <span>Kênh riêng tư (đang phát triển)</span>
+                </label>
+                <button class="primary-btn full" type="submit">Tạo kênh</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Create DM modal -->
+    <div id="create-dm-modal" class="modal hidden">
+        <div class="modal__dialog">
+            <header class="modal__header">
+                <h2>Trung tâm bạn bè</h2>
+                <button class="icon-button" type="button" data-close-modal>✕</button>
+            </header>
+            <div class="modal__body dm-modal">
+                <section class="modal-section">
+                    <h3>Danh sách bạn bè</h3>
+                    <ul id="friend-list" class="modal-list"></ul>
+                </section>
+                <section class="modal-section">
+                    <h3>Yêu cầu kết bạn</h3>
+                    <div class="modal-subsection">
+                        <h4>Đang chờ</h4>
+                        <ul id="incoming-requests" class="modal-list compact"></ul>
+                    </div>
+                    <div class="modal-subsection">
+                        <h4>Đã gửi</h4>
+                        <ul id="outgoing-requests" class="modal-list compact"></ul>
+                    </div>
+                </section>
+                <section class="modal-section">
+                    <h3>Thêm bạn mới</h3>
+                    <form id="add-friend-form" class="add-friend-form">
+                        <input id="add-friend-username" placeholder="Nhập username..." />
+                        <button type="submit" class="primary-btn small">Gửi lời mời</button>
+                    </form>
+                    <h4>Tìm kiếm người dùng</h4>
+                    <input id="search-user-input" placeholder="Tìm kiếm username..." />
+                    <ul id="search-user-list" class="modal-list compact"></ul>
+                    <h4>Nhắn tin nhanh</h4>
+                    <input id="dm-filter" placeholder="Lọc bạn bè..." />
+                    <ul id="dm-candidate-list" class="modal-list"></ul>
+                </section>
+            </div>
+        </div>
+    </div>
+
+    <!-- Invite friend modal -->
+    <div id="invite-friend-modal" class="modal hidden">
+        <div class="modal__dialog">
+            <header class="modal__header">
+                <h2>Mời bạn bè vào máy chủ</h2>
+                <button class="icon-button" type="button" data-close-modal>✕</button>
+            </header>
+            <div class="modal__body">
+                <p style="color: var(--text-muted); margin-bottom: 16px;">Chọn bạn bè để mời vào máy chủ hiện tại:</p>
+                <ul id="invite-friend-list" class="modal-list"></ul>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast hidden"></div>
+
+    <!-- Image viewer modal -->
+    <div id="image-viewer-modal" class="modal hidden">
+        <div class="modal__dialog" style="max-width: 95vw; max-height: 95vh; background: transparent; border: none; padding: 0;">
+            <button class="icon-button" type="button" data-close-modal style="position: absolute; top: 10px; right: 10px; z-index: 10001; background: rgba(0,0,0,0.7); color: white; border: 1px solid rgba(255,255,255,0.3);">✕</button>
+            <img id="image-viewer-img" src="" alt="Ảnh" style="max-width: 250%; max-height: 95vh; border-radius: 8px; cursor: pointer; display: block; margin: 0 auto; transform: scale(2.5); transform-origin: center center;" />
+        </div>
+    </div>
+
+    <script src="./app.js"></script>
+</body>
+</html>
+
