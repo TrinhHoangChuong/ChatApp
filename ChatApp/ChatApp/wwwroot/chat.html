@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChatApp - Discord Style</title>
+    <link rel="stylesheet" href="css/chat.css">
+</head>
+<body>
+    <div class="discord-container">
+        <!-- Left Sidebar: Servers/Rooms -->
+        <aside class="server-sidebar">
+            <div class="server-header">
+                <h2>💬 ChatApp</h2>
+                <button class="btn-logout" id="logoutBtn" title="Đăng xuất">🚪</button>
+            </div>
+            
+            <div class="server-sections">
+                <div class="server-section">
+                    <h3>📢 ROOMS</h3>
+                    <button class="btn-create-room" id="createRoomBtn">+ Tạo Room</button>
+                    <div id="roomsList" class="server-list">
+                        <!-- Public rooms will be loaded here -->
+                    </div>
+                </div>
+                
+                <div class="server-section">
+                    <h3>💬 DIRECT MESSAGES</h3>
+                    <div id="dmsList" class="server-list">
+                        <!-- DMs will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Middle: Channels/Users in selected room -->
+        <aside class="channel-sidebar">
+            <div class="channel-header">
+                <div class="current-room-info" id="currentRoomInfo">
+                    <h3 id="currentRoomName">Chọn một room...</h3>
+                </div>
+            </div>
+            
+            <div class="channel-content">
+                <!-- Room Members (if room selected) -->
+                <div id="roomMembersSection" style="display: none;">
+                    <div class="section-header">
+                        <span>THÀNH VIÊN — <span id="memberCount">0</span></span>
+                    </div>
+                    <div id="roomMembersList" class="members-list">
+                        <!-- Members will be loaded here -->
+                    </div>
+                </div>
+                
+                <!-- All Users (for DM) -->
+                <div id="allUsersSection">
+                    <div class="section-header">
+                        <span>TẤT CẢ NGƯỜI DÙNG</span>
+                    </div>
+                    <div id="allUsersList" class="members-list">
+                        <!-- All users will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Chat Area -->
+        <main class="chat-main">
+            <!-- Chat Header -->
+            <header class="chat-header" id="chatHeader">
+                <div class="chat-title">
+                    <h1 id="chatTitle">Chọn một room hoặc user để bắt đầu chat</h1>
+                    <span class="chat-subtitle" id="chatSubtitle"></span>
+                </div>
+                <div class="chat-actions">
+                    <button class="btn-join-room" id="joinRoomBtn" style="display: none;">Tham gia Room</button>
+                </div>
+            </header>
+
+            <!-- Messages Area -->
+            <div class="messages-container" id="messagesContainer">
+                <div class="messages-list" id="messagesList">
+                    <div class="welcome-message">
+                        <p>👋 Chào mừng bạn đến với ChatApp!</p>
+                        <p>Chọn một room ở bên trái hoặc bắt đầu chat riêng với một người dùng</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Message Input -->
+            <div class="message-input-container" id="messageInputContainer" style="display: none;">
+                <form id="messageForm" class="message-form">
+                    <input 
+                        type="text" 
+                        id="messageInput" 
+                        placeholder="Nhập tin nhắn của bạn..." 
+                        autocomplete="off"
+                        maxlength="1000"
+                    >
+                    <button type="submit" class="btn-send" id="sendBtn" title="Gửi (Enter)">
+                        <span>➤</span>
+                    </button>
+                </form>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal: Create Room -->
+    <div id="createRoomModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Tạo Room Mới</h2>
+                <button class="btn-close-modal" id="closeModalBtn">&times;</button>
+            </div>
+            <form id="createRoomForm">
+                <div class="form-group">
+                    <label for="roomName">Tên Room</label>
+                    <input type="text" id="roomName" required placeholder="VD: General, Gaming, Study...">
+                </div>
+                <div class="form-group">
+                    <label for="roomDescription">Mô tả (tùy chọn)</label>
+                    <input type="text" id="roomDescription" placeholder="Mô tả về room này...">
+                </div>
+                <button type="submit" class="btn-primary">Tạo Room</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="js/chat.js"></script>
+</body>
+</html>
