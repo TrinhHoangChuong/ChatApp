@@ -27,18 +27,37 @@ builder.Services.AddScoped<MessageService>();
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
     ?? "Data Source=chat.db"; // Fallback về SQLite nếu không có connection string
 
+// Log connection string (ẩn password)
+var safeConnectionString = connectionString.Contains("Password=") 
+    ? connectionString.Substring(0, connectionString.IndexOf("Password=")) + "Password=***"
+    : connectionString;
+Console.WriteLine($"[Database] Using connection: {safeConnectionString}");
+
 // Phát hiện loại database dựa trên connection string
 if (connectionString.Contains("Server=") || connectionString.Contains("(localdb)"))
 {
     // SQL Server
-    builder.Services.AddDbContext<AppDbContext>(options =>
-        options.UseSqlServer(connectionString));
+    try
+    {
+        builder.Services.AddDbContext<AppDbContext>(options =>
+            options.UseSqlServer(connectionString));
+        Console.WriteLine("[Database] Configured for SQL Server");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[Database] Error configuring SQL Server: {ex.Message}");
+        Console.WriteLine("[Database] Falling back to SQLite...");
+        connectionString = "Data Source=chat.db";
+        builder.Services.AddDbContext<AppDbContext>(options =>
+            options.UseSqlite(connectionString));
+    }
 }
 else
 {
     // SQLite (default)
     builder.Services.AddDbContext<AppDbContext>(options =>
         options.UseSqlite(connectionString));
+    Console.WriteLine("[Database] Configured for SQLite");
 }
 
 builder.Services.AddEndpointsApiExplorer();
@@ -63,15 +82,39 @@ using (var scope = app.Services.CreateScope())
         try
         {
             db.Database.EnsureCreated();
+            Console.WriteLine("[Database] SQLite database created/verified successfully");
         }
         catch (Exception ex)
         {
             // Log error nhưng không crash app
-            Console.WriteLine($"Warning: Could not ensure database created: {ex.Message}");
+            Console.WriteLine($"[Database] Warning: Could not ensure database created: {ex.Message}");
         }
     }
-    // Với SQL Server, schema đã được tạo bằng script SetupDatabase.sql
-    // Không cần làm gì ở đây
+    else
+    {
+        // Với SQL Server, kiểm tra kết nối
+        try
+        {
+            var canConnect = await db.Database.CanConnectAsync();
+            if (canConnect)
+            {
+                Console.WriteLine("[Database] SQL Server connection successful");
+            }
+            else
+            {
+                Console.WriteLine("[Database] Warning: Cannot connect to SQL Server. Please check:");
+                Console.WriteLine("  1. SQL Server service is running");
+                Console.WriteLine("  2. Connection string is correct");
+                Console.WriteLine("  3. Database exists (run SetupDatabase.sql)");
+                Console.WriteLine("  4. Firewall allows port 1433");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Database] Error connecting to SQL Server: {ex.Message}");
+            Console.WriteLine("[Database] Please check connection string and SQL Server configuration");
+        }
+    }
 }
 
 if (app.Environment.IsDevelopment())
