@@ -57,6 +57,27 @@ else
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+// Cấu hình CORS để cho phép requests từ bất kỳ origin nào (cho development và Ngrok)
+builder.Services.AddCors(options =>
+{
+    // CORS cho API và static files
+    options.AddPolicy("AllowAll", policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader();
+    });
+    
+    // CORS cho SignalR - không dùng AllowCredentials với AllowAnyOrigin
+    // SignalR sẽ hoạt động với AllowAnyOrigin (không cần credentials cho WebSocket)
+    options.AddPolicy("SignalRCors", policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader();
+    });
+});
+
 var app = builder.Build();
 
 // Database setup
@@ -119,12 +140,15 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+// CORS phải được gọi trước UseHttpsRedirection
+app.UseCors("AllowAll");
+
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseAuthorization();
 
 app.MapControllers();
-app.MapHub<ChatHub>("/chatHub");
+app.MapHub<ChatHub>("/chatHub").RequireCors("SignalRCors");
 app.MapFallbackToFile("index.html");
 
 app.Run();
