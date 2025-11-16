@@ -27,37 +27,31 @@ builder.Services.AddScoped<MessageService>();
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
     ?? "Data Source=chat.db"; // Fallback về SQLite nếu không có connection string
 
-// Log connection string (ẩn password)
-var safeConnectionString = connectionString.Contains("Password=") 
-    ? connectionString.Substring(0, connectionString.IndexOf("Password=")) + "Password=***"
-    : connectionString;
-Console.WriteLine($"[Database] Using connection: {safeConnectionString}");
+// Log connection string (ẩn password để debug)
+var safeLogString = connectionString;
+if (connectionString.Contains("Password="))
+{
+    var pwdIndex = connectionString.IndexOf("Password=");
+    var endIndex = connectionString.IndexOf(";", pwdIndex);
+    if (endIndex == -1) endIndex = connectionString.Length;
+    safeLogString = connectionString.Substring(0, pwdIndex) + "Password=***" + connectionString.Substring(endIndex);
+}
+Console.WriteLine($"[Config] Database connection: {safeLogString}");
 
 // Phát hiện loại database dựa trên connection string
 if (connectionString.Contains("Server=") || connectionString.Contains("(localdb)"))
 {
     // SQL Server
-    try
-    {
-        builder.Services.AddDbContext<AppDbContext>(options =>
-            options.UseSqlServer(connectionString));
-        Console.WriteLine("[Database] Configured for SQL Server");
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"[Database] Error configuring SQL Server: {ex.Message}");
-        Console.WriteLine("[Database] Falling back to SQLite...");
-        connectionString = "Data Source=chat.db";
-        builder.Services.AddDbContext<AppDbContext>(options =>
-            options.UseSqlite(connectionString));
-    }
+    builder.Services.AddDbContext<AppDbContext>(options =>
+        options.UseSqlServer(connectionString));
+    Console.WriteLine("[Config] Using SQL Server");
 }
 else
 {
     // SQLite (default)
     builder.Services.AddDbContext<AppDbContext>(options =>
         options.UseSqlite(connectionString));
-    Console.WriteLine("[Database] Configured for SQLite");
+    Console.WriteLine("[Config] Using SQLite");
 }
 
 builder.Services.AddEndpointsApiExplorer();
@@ -82,7 +76,7 @@ using (var scope = app.Services.CreateScope())
         try
         {
             db.Database.EnsureCreated();
-            Console.WriteLine("[Database] SQLite database created/verified successfully");
+            Console.WriteLine("[Database] SQLite database ready");
         }
         catch (Exception ex)
         {
@@ -98,21 +92,23 @@ using (var scope = app.Services.CreateScope())
             var canConnect = await db.Database.CanConnectAsync();
             if (canConnect)
             {
-                Console.WriteLine("[Database] SQL Server connection successful");
+                Console.WriteLine("[Database] SQL Server connection OK");
             }
             else
             {
-                Console.WriteLine("[Database] Warning: Cannot connect to SQL Server. Please check:");
-                Console.WriteLine("  1. SQL Server service is running");
-                Console.WriteLine("  2. Connection string is correct");
-                Console.WriteLine("  3. Database exists (run SetupDatabase.sql)");
-                Console.WriteLine("  4. Firewall allows port 1433");
+                Console.WriteLine("[Database] ⚠️  Cannot connect to SQL Server!");
+                Console.WriteLine("[Database] Please check:");
+                Console.WriteLine("[Database]   1. SQL Server service is running");
+                Console.WriteLine("[Database]   2. Connection string in appsettings.json");
+                Console.WriteLine("[Database]   3. Database exists (run SetupDatabase.sql)");
+                Console.WriteLine("[Database]   4. Run DetectSQLServer.ps1 to find correct connection string");
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[Database] Error connecting to SQL Server: {ex.Message}");
-            Console.WriteLine("[Database] Please check connection string and SQL Server configuration");
+            Console.WriteLine($"[Database] ❌ SQL Server connection error: {ex.Message}");
+            Console.WriteLine("[Database] Run 'DetectSQLServer.ps1' to find correct connection string");
+            Console.WriteLine("[Database] Or use SQLite: Change connection string to 'Data Source=chat.db'");
         }
     }
 }
