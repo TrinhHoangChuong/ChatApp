@@ -7,6 +7,7 @@
 -- Password: 123456
 -- =============================================
 -- Chạy script này để tạo database và tất cả tables
+-- Bao gồm: Users, Messages, Guilds, Channels, Memberships, Invitations, Friends
 -- =============================================
 
 -- =============================================
@@ -29,6 +30,14 @@ GO
 -- =============================================
 -- BƯỚC 2: Xóa các tables cũ nếu có (để tạo lại)
 -- =============================================
+IF EXISTS (SELECT * FROM sys.tables WHERE name = 'RoomMembers')
+    DROP TABLE RoomMembers;
+GO
+
+IF EXISTS (SELECT * FROM sys.tables WHERE name = 'Rooms')
+    DROP TABLE Rooms;
+GO
+
 IF EXISTS (SELECT * FROM sys.tables WHERE name = 'Friendships')
     DROP TABLE Friendships;
 GO
@@ -95,12 +104,14 @@ CREATE TABLE Messages (
     MediaUrl NVARCHAR(500) NULL,
     Recipient NVARCHAR(100) NULL,
     ChannelId INT NULL,
+    RoomId INT NULL,
     Type NVARCHAR(20) NOT NULL DEFAULT 'text',
     Timestamp DATETIME2 NOT NULL DEFAULT GETUTCDATE()
 );
 
 CREATE INDEX IX_Messages_Sender ON Messages(Sender);
 CREATE INDEX IX_Messages_ChannelId ON Messages(ChannelId);
+CREATE INDEX IX_Messages_RoomId ON Messages(RoomId);
 CREATE INDEX IX_Messages_Recipient ON Messages(Recipient);
 CREATE INDEX IX_Messages_Timestamp ON Messages(Timestamp);
 PRINT '✓ Table Messages created.';
@@ -244,6 +255,40 @@ PRINT '✓ Table Friendships created.';
 GO
 
 -- =============================================
+-- 8. Bảng Rooms (Optional - for future room feature)
+-- =============================================
+CREATE TABLE Rooms (
+    Id INT PRIMARY KEY IDENTITY(1,1),
+    Name NVARCHAR(100) NOT NULL,
+    Description NVARCHAR(255) NULL,
+    IsPrivate BIT NOT NULL DEFAULT 0,
+    CreatorId INT NULL,
+    CreatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE()
+);
+
+CREATE INDEX IX_Rooms_CreatorId ON Rooms(CreatorId);
+PRINT '✓ Table Rooms created.';
+GO
+
+-- =============================================
+-- 9. Bảng RoomMembers
+-- =============================================
+CREATE TABLE RoomMembers (
+    Id INT PRIMARY KEY IDENTITY(1,1),
+    RoomId INT NOT NULL,
+    UserId INT NOT NULL,
+    JoinedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    FOREIGN KEY (RoomId) REFERENCES Rooms(Id) ON DELETE CASCADE,
+    FOREIGN KEY (UserId) REFERENCES Users(Id) ON DELETE CASCADE,
+    UNIQUE(RoomId, UserId)
+);
+
+CREATE INDEX IX_RoomMembers_RoomId ON RoomMembers(RoomId);
+CREATE INDEX IX_RoomMembers_UserId ON RoomMembers(UserId);
+PRINT '✓ Table RoomMembers created.';
+GO
+
+-- =============================================
 -- BƯỚC 4: Kiểm tra và báo cáo
 -- =============================================
 PRINT '';
@@ -251,7 +296,7 @@ PRINT '=============================================';
 PRINT 'DATABASE SETUP COMPLETED!';
 PRINT '=============================================';
 PRINT 'Database: ChatAppDB';
-PRINT 'Total tables created: 9';
+PRINT 'Total tables created: 11';
 PRINT '';
 PRINT 'Tables:';
 PRINT '  1. Users';
@@ -263,6 +308,8 @@ PRINT '  6. ChannelMemberships';
 PRINT '  7. GuildInvitations';
 PRINT '  8. FriendRequests';
 PRINT '  9. Friendships';
+PRINT '  10. Rooms';
+PRINT '  11. RoomMembers';
 PRINT '';
 PRINT 'You can now run your application!';
 PRINT '=============================================';
@@ -276,4 +323,3 @@ FROM sys.tables t
 WHERE t.type = 'U' AND t.name NOT LIKE 'sys%'
 ORDER BY t.name;
 GO
-

@@ -75,6 +75,8 @@ namespace ChatApp.Hubs
                 Content = message,
                 Recipient = null,
                 Type = "text",
+                RoomId = null,
+                ChannelId = null,
                 Timestamp = DateTime.UtcNow
             };
 
@@ -105,6 +107,8 @@ namespace ChatApp.Hubs
                 MediaUrl = stickerUrl,
                 Recipient = null,
                 Type = "sticker",
+                RoomId = null,
+                ChannelId = null,
                 Timestamp = DateTime.UtcNow
             };
 
@@ -170,6 +174,7 @@ namespace ChatApp.Hubs
                     Sender = username,
                     Content = message,
                     ChannelId = channelId,
+                    RoomId = null, // Channel messages không dùng RoomId
                     Type = "text",
                     Timestamp = DateTime.UtcNow
                 };
@@ -197,6 +202,7 @@ namespace ChatApp.Hubs
                 Sender = username,
                 MediaUrl = stickerUrl,
                 ChannelId = channelId,
+                RoomId = null, // Channel messages không dùng RoomId
                 Type = "sticker",
                 Timestamp = DateTime.UtcNow
             };
@@ -282,17 +288,29 @@ namespace ChatApp.Hubs
                     Content = message,
                     Type = "dm",
                     Recipient = recipient,
+                    RoomId = null, // DM messages không dùng RoomId
+                    ChannelId = null, // DM messages không dùng ChannelId
                     Timestamp = DateTime.UtcNow
                 };
 
                 db.Messages.Add(msg);
                 await db.SaveChangesAsync();
                 payloadTime = msg.Timestamp;
+                
+                _logger.LogInformation("Direct message saved: Id={MessageId}, Sender={Sender}, Recipient={Recipient}", 
+                    msg.Id, username, recipient);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error saving direct message");
-                await Clients.Caller.SendAsync("Error", "Không thể gửi tin nhắn.");
+                _logger.LogError(ex, "Error saving direct message: {Message}", ex.Message);
+                _logger.LogError(ex, "Stack trace: {StackTrace}", ex.StackTrace);
+                var errorMessage = "Không thể gửi tin nhắn.";
+                if (ex.Message.Contains("Invalid column") || ex.Message.Contains("RoomId"))
+                {
+                    errorMessage = "Lỗi database: Cột RoomId chưa được tạo. Vui lòng chạy migration.";
+                    _logger.LogError("Database schema issue detected. RoomId column may be missing.");
+                }
+                await Clients.Caller.SendAsync("Error", errorMessage);
                 return;
             }
 
@@ -352,6 +370,8 @@ namespace ChatApp.Hubs
                     MediaUrl = mediaUrl,
                     Content = fileName,
                     Type = "dm",
+                    RoomId = null, // DM messages không dùng RoomId
+                    ChannelId = null, // DM messages không dùng ChannelId
                     Timestamp = DateTime.UtcNow
                 };
 

@@ -19,5 +19,7 @@ namespace ChatApp.Data
         public DbSet<GuildInvitation> GuildInvitations { get; set; }
         public DbSet<FriendRequest> FriendRequests { get; set; }
         public DbSet<Friendship> Friendships { get; set; }
+        public DbSet<Room> Rooms { get; set; }
+        public DbSet<RoomMember> RoomMembers { get; set; }
     }
 }

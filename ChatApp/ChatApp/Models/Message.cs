@@ -28,6 +28,9 @@ namespace ChatApp.Models
         // Nếu là tin nhắn trong kênh, lưu ChannelId
         public int? ChannelId { get; set; }
 
+        // Nếu là tin nhắn trong room, lưu RoomId
+        public int? RoomId { get; set; }
+
         // Loại message: "text", "sticker", "file"
         [Required]
         public string Type { get; set; } = "text";

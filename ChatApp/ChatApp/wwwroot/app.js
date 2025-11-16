@@ -773,8 +773,14 @@
                 renderMessages(list);
             }
         } catch (error) {
-            console.error(error);
-            showToast("Không thể tải lịch sử tin nhắn riêng.", "error");
+            console.error("Error loading DM history:", error);
+            const errorMsg = error.message || "Không thể tải lịch sử tin nhắn riêng.";
+            showToast(errorMsg, "error");
+            // Vẫn hiển thị empty list để user có thể gửi tin nhắn mới
+            state.dmMessages.set(username, []);
+            if (state.activeView === "dm" && state.activeDmTarget === username) {
+                renderMessages([]);
+            }
         }
     }
 
@@ -926,11 +932,20 @@
     }
 
     async function respondFriendRequest(requestId, accept) {
+        if (!requestId) {
+            showToast("Lỗi: Không có ID lời mời.", "error");
+            return;
+        }
         try {
             const endpoint = accept ? "accept" : "reject";
-            await fetchJson(`${API_BASE}/api/Friends/requests/${requestId}/${endpoint}`, { method: "POST" });
-            await fetchFriends();
-            await fetchFriendRequests();
+            const response = await fetchJson(`${API_BASE}/api/Friends/requests/${requestId}/${endpoint}`, { method: "POST" });
+            
+            // Refresh dữ liệu
+            await Promise.all([
+                fetchFriends(),
+                fetchFriendRequests()
+            ]);
+            
             if (accept) {
                 showToast("Đã chấp nhận lời mời kết bạn!", "success");
                 // Tự động refresh danh sách bạn bè và DM
@@ -940,7 +955,11 @@
                 showToast("Đã từ chối lời mời.", "info");
             }
         } catch (error) {
-            showToast(error.message || "Không thể xử lý yêu cầu.", "error");
+            console.error("Error responding to friend request:", error);
+            const errorMsg = error.message || error.statusText || "Không thể xử lý yêu cầu.";
+            showToast(errorMsg, "error");
+            // Refresh để đảm bảo UI đồng bộ
+            await fetchFriendRequests().catch(console.error);
         }
     }
 
@@ -1067,7 +1086,9 @@
             } else {
                 state.incomingRequests.forEach((req) => {
                     const li = document.createElement("li");
-                    li.className = "modal-item";
+                    li.className = "modal-item friend-request-item";
+                    const itemContent = document.createElement("div");
+                    itemContent.className = "friend-request-content";
                     const name = document.createElement("span");
                     const username = req.username ?? req.Username;
                     name.textContent = username;
@@ -1087,7 +1108,12 @@
                     acceptBtn.textContent = "Chấp nhận";
                     acceptBtn.classList.add("primary-btn", "small");
                     acceptBtn.addEventListener("click", async () => {
-                        await respondFriendRequest(req.requestId ?? req.RequestId, true);
+                        const requestId = req.requestId ?? req.RequestId;
+                        if (!requestId) {
+                            showToast("Lỗi: Không tìm thấy ID lời mời.", "error");
+                            return;
+                        }
+                        await respondFriendRequest(requestId, true);
                         // Sau khi chấp nhận, có thể mở DM ngay
                         const acceptedUsername = req.username ?? req.Username;
                         setTimeout(() => {
@@ -1100,10 +1126,21 @@
                     const rejectBtn = document.createElement("button");
                     rejectBtn.type = "button";
                     rejectBtn.textContent = "Từ chối";
-                    rejectBtn.classList.add("danger");
+                    rejectBtn.classList.add("danger", "small");
                     rejectBtn.addEventListener("click", () => respondFriendRequest(req.requestId ?? req.RequestId, false));
                     actions.append(acceptBtn, rejectBtn);
-                    li.append(name, actions);
+                    itemContent.append(name, actions);
+                    
+                    // Thêm nút X để đóng/ẩn request này
+                    const closeBtn = document.createElement("button");
+                    closeBtn.type = "button";
+                    closeBtn.className = "friend-request-close";
+                    closeBtn.innerHTML = "✕";
+                    closeBtn.title = "Đóng";
+                    closeBtn.addEventListener("click", () => {
+                        li.style.display = "none";
+                    });
+                    li.append(itemContent, closeBtn);
                     els.incomingRequests.append(li);
                 });
             }
@@ -1119,13 +1156,26 @@
             } else {
                 state.outgoingRequests.forEach((req) => {
                     const li = document.createElement("li");
-                    li.className = "modal-item";
+                    li.className = "modal-item friend-request-item";
+                    const itemContent = document.createElement("div");
+                    itemContent.className = "friend-request-content";
                     const name = document.createElement("span");
                     name.textContent = req.username ?? req.Username;
                     const note = document.createElement("span");
                     note.className = "modal-note";
                     note.textContent = "Đang chờ...";
-                    li.append(name, note);
+                    itemContent.append(name, note);
+                    
+                    // Thêm nút X để đóng/ẩn request này
+                    const closeBtn = document.createElement("button");
+                    closeBtn.type = "button";
+                    closeBtn.className = "friend-request-close";
+                    closeBtn.innerHTML = "✕";
+                    closeBtn.title = "Đóng";
+                    closeBtn.addEventListener("click", () => {
+                        li.style.display = "none";
+                    });
+                    li.append(itemContent, closeBtn);
                     els.outgoingRequests.append(li);
                 });
             }
@@ -1302,8 +1352,25 @@
     }
 
     async function sendDirectMessage(text) {
-        if (state.connection && state.activeDmTarget) {
-            await state.connection.invoke("SendDirectMessage", state.username, state.activeDmTarget, text);
+        if (!state.connection) {
+            showToast("Chưa kết nối đến server. Vui lòng đợi...", "warning");
+            return;
+        }
+        if (!state.activeDmTarget) {
+            showToast("Chưa chọn người nhận.", "warning");
+            return;
+        }
+        if (!text || !text.trim()) {
+            return;
+        }
+        try {
+            await state.connection.invoke("SendDirectMessage", state.username, state.activeDmTarget, text.trim());
+            // Tin nhắn sẽ được thêm vào UI qua ReceiveDirectMessage event
+            // Không cần clear input ở đây vì handleSend đã làm
+        } catch (error) {
+            console.error("Error sending direct message:", error);
+            showToast("Không thể gửi tin nhắn. " + (error.message || ""), "error");
+            throw error; // Re-throw để handleSend có thể xử lý
         }
     }
 
@@ -1358,10 +1425,16 @@
             }
             const payload = { sender, recipient, content, timestamp, type: "dm", id: messageId || Date.now() };
             const list = ensureDmThread(peer);
-            list.push(payload);
+            // Kiểm tra duplicate trước khi thêm
+            const existing = list.find(m => m.id === payload.id || (m.sender === payload.sender && m.content === payload.content && Math.abs(new Date(m.timestamp) - new Date(payload.timestamp)) < 1000));
+            if (!existing) {
+                list.push(payload);
+            }
             const isActive = state.activeView === "dm" && state.activeDmTarget === peer;
             if (isActive) {
-                appendMessage(payload);
+                if (!existing) {
+                    appendMessage(payload);
+                }
                 markDmAsRead(peer);
             } else if (sender !== state.username) {
                 const currentCount = state.unreadDms.get(peer) || 0;
@@ -1524,7 +1597,12 @@
         });
 
         state.connection.on("Error", (message) => {
+            console.error("SignalR Error:", message);
             showToast(message || "Đã xảy ra lỗi.", "error");
+            // Nếu là lỗi về kết bạn, refresh friend requests
+            if (message && (message.includes("kết bạn") || message.includes("friend"))) {
+                fetchFriendRequests().catch(console.error);
+            }
         });
 
         state.connection.on("UserList", (users) => {
@@ -1877,6 +1955,14 @@
             await sendFriendRequest(username);
             els.addFriendUsername.value = "";
         });
+
+        // Nút X để đóng modal ở header "Yêu cầu kết bạn"
+        const closeFriendRequestsBtn = document.getElementById("close-friend-requests-section");
+        if (closeFriendRequestsBtn) {
+            closeFriendRequestsBtn.addEventListener("click", () => {
+                hideModal(els.createDmModal);
+            });
+        }
 
         els.createChannelBtn?.addEventListener("click", () => {
             if (!state.activeServerId) {
